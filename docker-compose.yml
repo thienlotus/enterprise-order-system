@@ -1,0 +1,71 @@
+version: '3.8'
+
+services:
+  order-system-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: order-system-app
+    restart: unless-stopped
+    ports:
+      - "8085:8085"
+    depends_on:
+      order-postgres:
+        condition: service_healthy
+      order-redis:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      DB_HOST: order-postgres
+      DB_PORT: 5432
+      DB_NAME: order_system_db
+      DB_USER: postgres
+      DB_PASS: postgres123
+      REDIS_HOST: order-redis
+      REDIS_PORT: 6379
+    networks:
+      - order-network
+
+  order-postgres:
+    image: postgres:16-alpine
+    container_name: order-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: order_system_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres123
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d order_system_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - order-network
+
+  order-redis:
+    image: redis:7-alpine
+    container_name: order-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - order-network
+
+networks:
+  order-network:
+    driver: bridge
+
+volumes:
+  pgdata:
+  redisdata:
